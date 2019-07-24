@@ -12,46 +12,39 @@ import com.espertech.esper.runtime.client.*;
 import org.apache.log4j.varia.NullAppender;
 import webmedia.cep2019.simplesample.event.*;
 
-public class Main {
+public class SimpleSample {
 
-    public static void main(String[] args) {
+    Configuration configuration;
+    EPCompiler epCompiler;
+    CompilerArguments compilerArguments;
+    UpdateListener printListener;
+    EPRuntime runtime;
 
+    /**
+     * Perform initial configurations of the Esper Engine
+     */
+    private void init(){
         //Log configuration
         org.apache.log4j.BasicConfigurator.configure(new NullAppender()); //This just remove the Warnings
         //org.apache.log4j.BasicConfigurator.configure(); //This prints the logs on the console
 
         //Get the EPCompiler
-        EPCompiler epCompiler = EPCompilerProvider.getCompiler();
+        epCompiler = EPCompilerProvider.getCompiler();
 
         //The configuration is used to configure the Esper engine before the processing starts
-        Configuration configuration = new Configuration();
+        configuration = new Configuration();
+
         //Add a new event type using a java class
         configuration.getCommon().addEventType(SensorUpdate.class);
 
-        //Compiler Arguments based on the configuration
-        CompilerArguments compilerArguments = new CompilerArguments(configuration);
-
-        EPCompiled compiledRule = null;
-        try{ //Compile the rule to java bytecode
-            compiledRule = epCompiler.compile("@name('select-all') select * from SensorUpdate", compilerArguments);
-        }catch (EPCompileException ex){
-            ex.printStackTrace();
-        }
-
         //Get the runtime environment
-        EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
+        runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
 
-        EPDeployment deployment = null;
-        try{//Deploy the compiled rule
-            deployment = runtime.getDeploymentService().deploy(compiledRule);
-        }catch (EPDeployException ex){
-            ex.printStackTrace();
-        }
+        //Compiler Arguments based on the configuration
+        compilerArguments = new CompilerArguments(configuration);
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "select-all");
-
-        //Create an update listener that prints the event properties
-        UpdateListener printListener = new UpdateListener() {
+        //Create an update listener that just prints the event information
+        printListener = new UpdateListener() {
             public void update(EventBean[] newData, EventBean[] oldData, EPStatement epStatement, EPRuntime epRuntime) {
                 for (int i = 0; i < newData.length; i++) {
                     EventBean event = newData[i];
@@ -69,11 +62,48 @@ public class Main {
                 }
             }
         };
+    }
+
+    /**
+     * Compile and deploy an EPL rule
+     * @param label a label for the rule
+     * @param epl the EPL rule
+     */
+    private void compileAndDeploy(String label, String epl){
+        EPCompiled compiledRule = null;
+        try{ //Compile the rule to java bytecode
+            compiledRule = epCompiler.compile("@name('" + label + "') " + epl, compilerArguments);
+        }catch (EPCompileException ex){
+            ex.printStackTrace();
+        }
+
+        EPDeployment deployment = null;
+        try{//Deploy the compiled rule
+            deployment = runtime.getDeploymentService().deploy(compiledRule);
+        }catch (EPDeployException ex){
+            ex.printStackTrace();
+        }
+
+        //The statement is a rule already deployed to the runtime environment
+        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "select-all");
+
 
         //Add the printListener to the created statement
         statement.addListener(printListener);
+    }
 
+    /**
+     * Run this demo
+     */
+    public void runDemo(){
+        this.init();
+        this.compileAndDeploy("select-all", "select * from SensorUpdate");
         //Send a new event
         runtime.getEventService().sendEventBean(new SensorUpdate(25.6, 0.65, 1), "SensorUpdate");
+    }
+
+    public static void main(String[] args) {
+        SimpleSample simpleSample = new SimpleSample();
+        simpleSample.runDemo();
     }
 }
