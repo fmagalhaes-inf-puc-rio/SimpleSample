@@ -5,6 +5,6 @@ This project uses the Maven. You can import it to any Java IDE compatible with M
 To build the project use:<br>
 > <code>mvn assembly</code><br>
 
-The executable jar file will be available as:<br>
+The executable jar file will be available at:<br>
 
 > target/SimpleSample-jar-with-dependencies.jar
